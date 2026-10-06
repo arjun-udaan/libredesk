@@ -125,6 +125,8 @@ type queries struct {
 	GetVisitorByEmail                *sqlx.Stmt `query:"get-visitor-by-email"`
 	UpgradeVisitorToContact          *sqlx.Stmt `query:"upgrade-visitor-to-contact"`
 	ToggleEnable                     *sqlx.Stmt `query:"toggle-enable"`
+	LockContactExternalIdentity      *sqlx.Stmt `query:"lock-contact-external-identity"`
+	SyncContactExternalIdentity      *sqlx.Stmt `query:"sync-contact-external-identity"`
 
 	// API key queries
 	GetUserByAPIKey      *sqlx.Stmt `query:"get-user-by-api-key"`
