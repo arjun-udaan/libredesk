@@ -243,7 +243,8 @@ func V2_9_0(db *sqlx.DB, fs stuffbin.FileSystem, ko *koanf.Koanf) error {
 		INSERT INTO settings ("key", value) VALUES
 			('notification.push.vapid_public_key', '""'::jsonb),
 			('notification.push.vapid_private_key', '""'::jsonb),
-			('app.reply_guard_phrases', '""'::jsonb)
+			('app.reply_guard_phrases', '""'::jsonb),
+			('app.time_format', '"12h"'::jsonb)
 		ON CONFLICT ("key") DO NOTHING;
 	`); err != nil {
 		return err
