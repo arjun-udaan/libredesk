@@ -36,15 +36,15 @@ type preparedImageUpload struct {
 
 // handleMediaUpload handles media uploads.
 func handleMediaUpload(r *fastglue.Request) error {
-	return handleMediaUploadWithMeta(r, nil)
+	auser := r.RequestCtx.UserValue("user").(amodels.User)
+	return handleMediaUploadWithMeta(r, auser.ID, nil)
 }
 
-// handleMediaUploadWithMeta uploads media and merges extra values into its metadata.
-func handleMediaUploadWithMeta(r *fastglue.Request, extraMeta map[string]any) error {
+// handleMediaUploadWithMeta records the authenticated uploader and merges extra metadata.
+func handleMediaUploadWithMeta(r *fastglue.Request, uploaderID int, extraMeta map[string]any) error {
 	var (
 		app     = r.Context.(*App)
 		cleanUp = false
-		auser   = r.RequestCtx.UserValue("user").(amodels.User)
 	)
 
 	form, err := r.RequestCtx.MultipartForm()
@@ -82,7 +82,10 @@ func handleMediaUploadWithMeta(r *fastglue.Request, extraMeta map[string]any) er
 
 	// Only agents who manage the help center may upload publicly served media.
 	if mmodels.IsPublicModel(linkedModel) {
-		auser := r.RequestCtx.UserValue("user").(amodels.User)
+		auser, ok := r.RequestCtx.UserValue("user").(amodels.User)
+		if !ok || auser.ID != uploaderID {
+			return r.SendErrorEnvelope(fasthttp.StatusForbidden, app.i18n.T("status.deniedPermission"), nil, envelope.PermissionError)
+		}
 		agent, err := app.user.GetAgentCachedOrLoad(auser.ID)
 		if err != nil {
 			return sendErrorEnvelope(r, err)
@@ -183,7 +186,7 @@ func handleMediaUploadWithMeta(r *fastglue.Request, extraMeta map[string]any) er
 	}
 
 	// Insert in DB.
-	media, err := app.media.Insert(disposition, srcFileName, srcContentType, "" /**content_id**/, null.NewString(linkedModel, linkedModel != ""), uuid.String(), null.Int{} /**model_id**/, int(srcFileSize), meta, !mmodels.IsPublicModel(linkedModel), null.IntFrom(auser.ID))
+	media, err := app.media.Insert(disposition, srcFileName, srcContentType, "" /**content_id**/, null.NewString(linkedModel, linkedModel != ""), uuid.String(), null.Int{} /**model_id**/, int(srcFileSize), meta, !mmodels.IsPublicModel(linkedModel), null.IntFrom(uploaderID))
 	if err != nil {
 		cleanUp = true
 		app.lo.Error("error inserting metadata into database", "error", err)

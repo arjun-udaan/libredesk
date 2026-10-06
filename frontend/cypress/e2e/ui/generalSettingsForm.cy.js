@@ -107,6 +107,22 @@ describe('General settings form', () => {
     cy.get('@saveGeneral.all').should('have.length', 0)
   })
 
+  it('persists time format and reply guard phrases', () => {
+    cy.intercept('PUT', '**/api/v1/settings/general').as('saveGeneral')
+    cy.visit(path)
+    pickOption('time_format', '24-hour')
+    cy.get('textarea[name="reply_guard_phrases"]').clear().type('internal only\ndo not share')
+    cy.get('button[type="submit"]').click()
+    cy.wait('@saveGeneral').its('response.statusCode').should('eq', 200)
+    cy.visit(path)
+    cy.get('select[name="time_format"]').should('have.value', '24h')
+    cy.get('textarea[name="reply_guard_phrases"]').should('have.value', 'internal only\ndo not share')
+    cy.api('GET', '/api/v1/settings/general').then(({ body }) => {
+      expect(body.data['app.time_format']).to.eq('24h')
+      expect(body.data['app.reply_guard_phrases']).to.eq('internal only\ndo not share')
+    })
+  })
+
   it('rejects an empty site name', () => {
     cy.intercept('PUT', '**/api/v1/settings/general').as('saveGeneral')
 

@@ -592,6 +592,7 @@ func handleChatSendMessage(r *fastglue.Request) error {
 		ContentType:      cmodels.ContentTypeText,
 		Private:          false,
 		Media:            media,
+		UploadUserID:     senderID,
 	}
 	if message, err = app.conversation.ProcessIncomingLiveChatMessage(message); err != nil {
 		app.lo.Error("error processing incoming message", "conversation_uuid", conversationUUID, "error", err)
@@ -701,7 +702,7 @@ func handleWidgetMediaUpload(r *fastglue.Request) error {
 
 	form.Value["linked_model"] = []string{mmodels.ModelMessages}
 	form.Value["inline"] = []string{"false"}
-	return handleMediaUploadWithMeta(r, map[string]any{"widget_contact_id": senderID})
+	return handleMediaUploadWithMeta(r, senderID, map[string]any{"widget_contact_id": senderID})
 }
 
 // getWidgetMessageMedia returns unlinked staged media owned by the widget contact.

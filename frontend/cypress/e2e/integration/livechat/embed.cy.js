@@ -124,7 +124,7 @@ describe('Live chat widget embedded on a host page', () => {
     )
   })
 
-  it('enforces a required pre-chat field before the chat opens', () => {
+  it('enforces a required pre-chat field and its regex before the chat opens', () => {
     cy.createLivechatInbox(
       embedConfig({
         prechat_form: {
@@ -136,6 +136,8 @@ describe('Live chat widget embedded on a host page', () => {
               type: 'text',
               label: 'Name',
               required: true,
+              pattern: '^ACCT-[0-9]{4}$',
+              pattern_message: 'Use ACCT followed by four digits',
               enabled: true,
               order: 1,
               is_default: true
@@ -149,6 +151,49 @@ describe('Live chat widget embedded on a host page', () => {
       cy.widgetBody().contains(startButtonText).click()
       cy.widgetBody().contains('Before we start').should('be.visible')
       cy.widgetBody().find('input').should('exist')
+      cy.widgetBody().find('input[name="name"]').type('invalid')
+      cy.widgetBody().find('textarea').type('Regex browser check')
+      cy.widgetBody().contains('button', 'Start chat').click()
+      cy.widgetBody().contains('Use ACCT followed by four digits').should('be.visible')
+      cy.widgetBody().find('input[name="name"]').clear().type('ACCT-1234')
+      cy.widgetBody().contains('button', 'Start chat').should('be.enabled').click()
+      cy.widgetBody().contains('Regex browser check', { timeout: 20000 }).should('be.visible')
+    })
+  })
+
+  it('stages an attachment and sends it with the next visitor message', () => {
+    cy.createLivechatInbox(embedConfig({ features: { file_upload: true } })).then((inbox) => {
+      cy.visitWidgetHost(inbox.uuid)
+      cy.widgetLauncher().click()
+      cy.widgetBody().contains(startButtonText).click()
+      cy.widgetBody().find('textarea').type('Attachment browser check{enter}')
+      cy.widgetBody().contains('Attachment browser check', { timeout: 20000 }).should('be.visible')
+      cy.intercept('POST', '**/api/v1/widget/chat/conversations/*/message').as('attachmentMessage')
+      cy.intercept('POST', '**/api/v1/widget/media/upload').as('attachmentUpload')
+      cy.widgetBody().find('input[type="file"]').selectFile({
+        contents: Cypress.Buffer.from('staged widget attachment'),
+        fileName: 'widget-check.txt',
+        mimeType: 'text/plain'
+      }, { force: true })
+      cy.widgetBody().contains('widget-check.txt').should('be.visible')
+      cy.get('@attachmentMessage.all').should('have.length', 0)
+      cy.widgetBody().find('textarea').type('Attachment sent')
+      cy.widgetBody().find('button[aria-label="Send"]').click()
+      cy.wait('@attachmentUpload').then(({ response }) => {
+        expect(response, 'upload response').to.exist
+        expect(response.statusCode, JSON.stringify(response.body)).to.eq(200)
+        expect(response.body.data.private).to.eq(true)
+        expect(response.body.data.meta.widget_contact_id).to.be.a('number').and.be.greaterThan(0)
+      })
+      cy.wait('@attachmentMessage').then(({ request, response }) => {
+        expect(response.statusCode).to.eq(200)
+        expect(request.body.attachments).to.have.length(1)
+      })
+      cy.latestConversation(inbox).then((conversation) => {
+        cy.api('GET', `/api/v1/conversations/${conversation.uuid}/messages`).then(({ body }) => {
+          expect(JSON.stringify(body.data)).to.include('widget-check.txt')
+        })
+      })
     })
   })
 })
