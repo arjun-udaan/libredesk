@@ -36,6 +36,11 @@ type preparedImageUpload struct {
 
 // handleMediaUpload handles media uploads.
 func handleMediaUpload(r *fastglue.Request) error {
+	return handleMediaUploadWithMeta(r, nil)
+}
+
+// handleMediaUploadWithMeta uploads media and merges extra values into its metadata.
+func handleMediaUploadWithMeta(r *fastglue.Request, extraMeta map[string]any) error {
 	var (
 		app     = r.Context.(*App)
 		cleanUp = false
@@ -148,6 +153,21 @@ func handleMediaUpload(r *fastglue.Request) error {
 				thumbName = uploadedThumb
 			}
 			meta = prepared.meta
+		}
+	}
+	if len(extraMeta) > 0 {
+		var values map[string]any
+		if err := json.Unmarshal(meta, &values); err != nil {
+			cleanUp = true
+			return sendErrorEnvelope(r, err)
+		}
+		for key, value := range extraMeta {
+			values[key] = value
+		}
+		meta, err = json.Marshal(values)
+		if err != nil {
+			cleanUp = true
+			return sendErrorEnvelope(r, err)
 		}
 	}
 
