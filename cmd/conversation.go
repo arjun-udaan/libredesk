@@ -380,6 +380,13 @@ func handleGetConversation(r *fastglue.Request) error {
 		return sendErrorEnvelope(r, err)
 	}
 	conv.PreviousConversations = filterCurrentPreviousConv(prev, conv.UUID)
+
+	seenBy, err := app.conversation.GetConversationSeenBy(conv.UUID)
+	if err != nil {
+		return sendErrorEnvelope(r, err)
+	}
+	conv.SeenBy = seenBy
+
 	return r.SendEnvelope(conv)
 }
 
