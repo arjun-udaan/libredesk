@@ -14,7 +14,13 @@
           <p class="text-sm text-muted-foreground">{{ t('auth.signIn') }}</p>
         </div>
 
-        <div v-if="enabledOIDCProviders.length" class="space-y-3">
+        <TwoFactorLoginForm
+          v-if="twoFactorRequired"
+          @success="finishLogin"
+          @cancel="cancelTwoFactor"
+        />
+
+        <div v-if="!twoFactorRequired && enabledOIDCProviders.length" class="space-y-3">
           <Button
             v-for="oidcProvider in enabledOIDCProviders"
             :key="oidcProvider.id"
@@ -42,7 +48,7 @@
           </div>
         </div>
 
-        <form v-if="localLoginEnabled" @submit.prevent="loginAction" class="space-y-3">
+        <form v-if="!twoFactorRequired && localLoginEnabled" @submit.prevent="loginAction" class="space-y-3">
           <div class="space-y-2">
             <Label for="email" class="text-muted-foreground">{{ t('globals.terms.email') }}</Label>
             <Input
@@ -112,10 +118,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { handleHTTPError } from '@shared-ui/utils/http.js'
 import api from '../../api'
+import TwoFactorLoginForm from '@/components/auth/TwoFactorLoginForm.vue'
 import { validateEmail } from '@shared-ui/utils/string'
 import { applyTemporaryClass } from '@/utils/temporary-class'
 import { Button } from '@shared-ui/components/ui/button'
@@ -134,6 +141,7 @@ import { Eye, EyeOff } from 'lucide-vue-next'
 const emitter = useEmitter()
 const { t } = useI18n()
 const errorMessage = ref('')
+const twoFactorRequired = ref(false)
 const isLoading = ref(false)
 const router = useRouter()
 const userStore = useUserStore()
@@ -170,6 +178,7 @@ onMounted(async () => {
     loginForm.value.email = demoCredentials.email
     loginForm.value.password = demoCredentials.password
   }
+  twoFactorRequired.value = router.currentRoute.value.query.two_factor === 'required'
   fetchOIDCProviders()
   showOIDCError()
 })
@@ -232,19 +241,12 @@ const loginAction = () => {
       password: loginForm.value.password
     })
     .then((resp) => {
-      if (resp?.data?.data) {
-        userStore.setCurrentUser(resp.data.data)
+      if (resp?.data?.data?.two_factor_required) {
+        loginForm.value.password = ''
+        twoFactorRequired.value = true
+        return
       }
-      // Also fetch general setting as user's logged in.
-      appSettingsStore.fetchSettings('general')
-
-      // Redirect to the 'next' parameter if it exists
-      const nextParam = router.currentRoute.value.query.next
-      if (nextParam) {
-        router.push(nextParam)
-      } else {
-        router.push({ name: 'inboxes' })
-      }
+      finishLogin(resp)
     })
     .catch((error) => {
       errorMessage.value = handleHTTPError(error).message
@@ -253,6 +255,28 @@ const loginAction = () => {
     .finally(() => {
       isLoading.value = false
     })
+}
+
+const finishLogin = (resp) => {
+  userStore.setCurrentUser(resp.data.data)
+  appSettingsStore.fetchSettings('general')
+  const next = resp.headers?.['x-login-next'] || router.currentRoute.value.query.next
+  router.push(
+    typeof next === 'string' && next.startsWith('/') && !next.startsWith('//')
+      ? next
+      : { name: 'inboxes' }
+  )
+}
+
+const cancelTwoFactor = async () => {
+  twoFactorRequired.value = false
+  submitted.value = false
+  errorMessage.value = ''
+  const query = { ...router.currentRoute.value.query }
+  delete query.two_factor
+  await router.replace({ query })
+  await nextTick()
+  document.getElementById('email')?.focus()
 }
 
 const enabledOIDCProviders = computed(() => {

@@ -52,6 +52,7 @@ import (
 	"github.com/abhinavxd/libredesk/internal/tag"
 	"github.com/abhinavxd/libredesk/internal/team"
 	"github.com/abhinavxd/libredesk/internal/template"
+	"github.com/abhinavxd/libredesk/internal/twofactor"
 	"github.com/abhinavxd/libredesk/internal/user"
 	"github.com/abhinavxd/libredesk/internal/webhook"
 	whatsappapi "github.com/abhinavxd/libredesk/internal/whatsapp"
@@ -97,6 +98,7 @@ const (
 
 // App is the global app context which is passed and injected in the http handlers.
 type App struct {
+	twoFactor          *twofactor.Manager
 	proactive          *proactive.Manager
 	ctx                context.Context
 	fs                 stuffbin.FileSystem
@@ -257,6 +259,7 @@ func main() {
 		businessHours               = initBusinessHours(db, i18n)
 		webhook                     = initWebhook(db, i18n, ssrfControl)
 		user                        = initUser(i18n, db)
+		twoFactor                   = initTwoFactor(db, i18n)
 		auth                        = initAuth(oidc, rdb, i18n, ssrfControl, user)
 		wsHub                       = initWS(user)
 		notifier                    = initNotifier()
@@ -333,6 +336,7 @@ func main() {
 		activityLog:      initActivityLog(db, i18n),
 		customAttribute:  initCustomAttribute(db, i18n),
 		authz:            initAuthz(i18n),
+		twoFactor:        twoFactor,
 		view:             initView(db, i18n),
 		report:           initReport(db, i18n),
 		search:           initSearch(db, i18n, conversation),

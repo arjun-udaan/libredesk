@@ -291,6 +291,14 @@ func (a *Auth) ExchangeOIDCToken(ctx context.Context, providerID int, code strin
 
 // SaveSession creates and sets a session (post successful login/auth).
 func (a *Auth) SaveSession(user amodels.User, r *fastglue.Request) error {
+	return a.saveSession(user, r, false)
+}
+
+func (a *Auth) SaveTwoFactorSession(user amodels.User, r *fastglue.Request) error {
+	return a.saveSession(user, r, true)
+}
+
+func (a *Auth) saveSession(user amodels.User, r *fastglue.Request, twoFactorVerified bool) error {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
@@ -300,13 +308,17 @@ func (a *Auth) SaveSession(user amodels.User, r *fastglue.Request) error {
 		return err
 	}
 
-	if err := sess.SetMulti(map[string]interface{}{
+	values := map[string]any{
 		"id":              user.ID,
 		"session_version": user.SessionVersion,
 		"email":           user.Email,
 		"first_name":      user.FirstName,
 		"last_name":       user.LastName,
-	}); err != nil {
+	}
+	if twoFactorVerified {
+		values["two_factor_verified_at"] = time.Now().UTC().Format(time.RFC3339)
+	}
+	if err := sess.SetMulti(values); err != nil {
 		a.logger.Error("error setting login session", "error", err)
 		return err
 	}
