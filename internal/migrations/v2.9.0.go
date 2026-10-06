@@ -366,6 +366,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS index_unique_help_articles_on_translation_grou
 		return err
 	}
 
+	return migrateExternalSync(db)
+}
+
+func migrateExternalSync(db *sqlx.DB) error {
 	// Remembers the identity an external integration last supplied for a contact, so a later sync
 	// can tell its own value from one an agent corrected by hand.
 	if _, err := db.Exec(`
