@@ -366,6 +366,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS index_unique_help_articles_on_translation_grou
 		return err
 	}
 
+	if _, err := db.Exec(`ALTER TABLE custom_attribute_definitions ADD COLUMN IF NOT EXISTS read_only BOOLEAN NOT NULL DEFAULT false;`); err != nil {
+		return err
+	}
 	return migrateExternalSync(db)
 }
 
