@@ -52,7 +52,8 @@ func TestDispatcherPassesResultsThroughProviders(t *testing.T) {
 	}
 	email := &fakeChannelProvider{channel: models.NotificationChannelEmail}
 	d := NewDispatcher(DispatcherOpts{
-		Pipeline: channels.NewPipeline(email, inApp),
+		EmailEnabled: true,
+		Pipeline:     channels.NewPipeline(email, inApp),
 		Prefs: fakePreferences{channels: map[int][]models.NotificationChannel{
 			42: {models.NotificationChannelInApp, models.NotificationChannelEmail},
 		}},
@@ -74,6 +75,7 @@ func TestDispatcherPassesResultsThroughProviders(t *testing.T) {
 func TestDispatcherSendsPushUsingNotificationRoute(t *testing.T) {
 	push := &fakePushSender{}
 	d := NewDispatcher(DispatcherOpts{
+		EmailEnabled: true,
 		Prefs: fakePreferences{channels: map[int][]models.NotificationChannel{
 			42: {models.NotificationChannelPush},
 		}},
@@ -102,6 +104,7 @@ func TestDispatcherSendsPushUsingNotificationRoute(t *testing.T) {
 func TestDispatcherDoesNotSendPushWhenDisabled(t *testing.T) {
 	push := &fakePushSender{}
 	d := NewDispatcher(DispatcherOpts{
+		EmailEnabled: true,
 		Prefs: fakePreferences{channels: map[int][]models.NotificationChannel{
 			42: nil,
 		}},
@@ -122,8 +125,9 @@ func TestDispatcherReturnsPreferenceLookupFailure(t *testing.T) {
 	lookupErr := errors.New("lookup failed")
 	push := &fakePushSender{}
 	d := NewDispatcher(DispatcherOpts{
-		Prefs:    fakePreferences{err: lookupErr},
-		Pipeline: channels.NewPipeline(channels.NewPush(push)),
+		EmailEnabled: true,
+		Prefs:        fakePreferences{err: lookupErr},
+		Pipeline:     channels.NewPipeline(channels.NewPush(push)),
 	})
 	_, err := d.Send(models.Notification{
 		Type:       models.NotificationTypeMention,

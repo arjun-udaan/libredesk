@@ -44,8 +44,9 @@ func TestDelayedReplyEmailUsesQueueTime(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := NewDispatcher(DispatcherOpts{
-		Pipeline: channels.NewPipeline(channels.NewEmail(queue)),
-		Prefs:    fakePreferences{channels: map[int][]models.NotificationChannel{userID: {models.NotificationChannelEmail}}},
+		EmailEnabled: true,
+		Pipeline:     channels.NewPipeline(channels.NewEmail(queue)),
+		Prefs:        fakePreferences{channels: map[int][]models.NotificationChannel{userID: {models.NotificationChannelEmail}}},
 	})
 	n := models.Notification{
 		Type: models.NotificationTypeNewReply,
@@ -170,8 +171,9 @@ func TestDelayedEmailRetriesThenGivesUp(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := NewDispatcher(DispatcherOpts{
-		Pipeline: channels.NewPipeline(channels.NewEmail(queue)),
-		Prefs:    fakePreferences{channels: map[int][]models.NotificationChannel{userID: {models.NotificationChannelEmail}}},
+		EmailEnabled: true,
+		Pipeline:     channels.NewPipeline(channels.NewEmail(queue)),
+		Prefs:        fakePreferences{channels: map[int][]models.NotificationChannel{userID: {models.NotificationChannelEmail}}},
 	})
 	n := models.Notification{Type: models.NotificationTypeNewReply, Recipients: []models.Recipient{{UserID: userID}}, ConversationID: null.IntFrom(convID)}
 	email := &models.EmailNotification{Recipient: "queued@example.com", Subject: "Reply", Content: "Reply", Delay: time.Minute}

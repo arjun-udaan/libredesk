@@ -2,6 +2,7 @@ package notifier
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	"github.com/abhinavxd/libredesk/internal/notification/channels"
 	"github.com/abhinavxd/libredesk/internal/notification/models"
@@ -12,19 +13,27 @@ type NotificationPreferenceStore interface {
 }
 
 type Dispatcher struct {
-	pipeline channels.Pipeline
-	prefs    NotificationPreferenceStore
+	emailEnabled atomic.Bool
+	pipeline     channels.Pipeline
+	prefs        NotificationPreferenceStore
 }
 
 // DispatcherOpts contains options for creating a new Dispatcher.
 type DispatcherOpts struct {
-	Pipeline channels.Pipeline
-	Prefs    NotificationPreferenceStore
+	EmailEnabled bool
+	Pipeline     channels.Pipeline
+	Prefs        NotificationPreferenceStore
 }
 
 // NewDispatcher creates a new notification Dispatcher.
 func NewDispatcher(opts DispatcherOpts) *Dispatcher {
-	return &Dispatcher{pipeline: opts.Pipeline, prefs: opts.Prefs}
+	d := &Dispatcher{pipeline: opts.Pipeline, prefs: opts.Prefs}
+	d.emailEnabled.Store(opts.EmailEnabled)
+	return d
+}
+
+func (d *Dispatcher) SetEmailEnabled(enabled bool) {
+	d.emailEnabled.Store(enabled)
 }
 
 func (d *Dispatcher) Send(n models.Notification) ([]models.DeliveryResult, error) {
@@ -35,6 +44,18 @@ func (d *Dispatcher) Send(n models.Notification) ([]models.DeliveryResult, error
 	enabled, err := d.prefs.EnabledChannels(recipientIDs, n.Type)
 	if err != nil {
 		return nil, fmt.Errorf("fetching notification preferences: %w", err)
+	}
+
+	if !d.emailEnabled.Load() {
+		for id, prefs := range enabled {
+			filtered := make([]models.NotificationChannel, 0, len(prefs))
+			for _, channel := range prefs {
+				if channel != models.NotificationChannelEmail {
+					filtered = append(filtered, channel)
+				}
+			}
+			enabled[id] = filtered
+		}
 	}
 
 	results := make([]models.DeliveryResult, 0, len(n.Recipients))

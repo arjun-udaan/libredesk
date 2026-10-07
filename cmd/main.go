@@ -131,6 +131,8 @@ type App struct {
 	search             *search.Manager
 	activityLog        *activitylog.Manager
 	notifier           *notifier.Service
+	notifDispatcher    *notifier.Dispatcher
+	emailSettingsMu    sync.Mutex
 	userNotification   *notifier.UserNotificationManager
 	notificationPref   *notifier.PreferenceManager
 	pushNotification   *notifier.PushManager
@@ -152,8 +154,6 @@ type App struct {
 
 	// Global state that stores data on an available app update.
 	update *AppUpdate
-	// Flag to indicate if app restart is required for settings to take effect.
-	restartRequired bool
 	sync.Mutex
 }
 
@@ -262,7 +262,7 @@ func main() {
 		twoFactor                   = initTwoFactor(db, i18n)
 		auth                        = initAuth(oidc, rdb, i18n, ssrfControl, user)
 		wsHub                       = initWS(user)
-		notifier                    = initNotifier()
+		notifier                    = initNotifier(settings)
 		userNotification            = initUserNotification(db, i18n)
 		notificationPreference      = initNotificationPreference(db, i18n)
 		pushNotification            = initPushNotification(db, settings, i18n)
@@ -330,6 +330,7 @@ func main() {
 		priority:         priority,
 		tmpl:             template,
 		notifier:         notifier,
+		notifDispatcher:  notifDispatcher,
 		consts:           atomic.Value{},
 		conversation:     conversation,
 		automation:       automation,
