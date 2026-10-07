@@ -72,6 +72,25 @@ func TestDispatcherPassesResultsThroughProviders(t *testing.T) {
 	}
 }
 
+func TestDispatcherLiveEmailTogglePreservesPreferences(t *testing.T) {
+	email := &fakeChannelProvider{channel: models.NotificationChannelEmail, result: channels.Result{Sent: true}}
+	d := NewDispatcher(DispatcherOpts{
+		Pipeline: channels.NewPipeline(email),
+		Prefs:    fakePreferences{channels: map[int][]models.NotificationChannel{42: {models.NotificationChannelEmail}}},
+	})
+	n := models.Notification{Type: models.NotificationTypeMention, Recipients: []models.Recipient{{UserID: 42}}}
+	for _, enabled := range []bool{false, true, false, true} {
+		d.SetEmailEnabled(enabled)
+		results, err := d.Send(n)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if (len(results[0].Channels) == 1) != enabled {
+			t.Fatalf("email enabled=%v: results=%v", enabled, results)
+		}
+	}
+}
+
 func TestDispatcherSendsPushUsingNotificationRoute(t *testing.T) {
 	push := &fakePushSender{}
 	d := NewDispatcher(DispatcherOpts{

@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	amodels "github.com/abhinavxd/libredesk/internal/auth/models"
 	"github.com/abhinavxd/libredesk/internal/automation/models"
@@ -29,7 +28,7 @@ import (
 	"github.com/zerodha/fastglue"
 )
 
-const maxConversationSubjectLength = 255
+const maxConversationSubjectLength = maxChatSubjectLength
 
 type assigneeChangeReq struct {
 	AssigneeID int `json:"assignee_id"`
@@ -689,11 +688,7 @@ func handleUpdateConversationSubject(r *fastglue.Request) error {
 // normalizeConversationSubject collapses all whitespace in a subject to single spaces and trims it, then
 // enforces maxConversationSubjectLength in characters rather than bytes. Returns false when it is too long.
 func normalizeConversationSubject(subject string) (string, bool) {
-	subject = strings.Join(strings.Fields(subject), " ")
-	if utf8.RuneCountInString(subject) > maxConversationSubjectLength {
-		return "", false
-	}
-	return subject, true
+	return normalizeChatSubject(subject)
 }
 
 // handleUpdateConversationStatus updates the status of a conversation.

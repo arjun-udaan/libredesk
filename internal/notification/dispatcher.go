@@ -46,25 +46,24 @@ func (d *Dispatcher) Send(n models.Notification) ([]models.DeliveryResult, error
 		return nil, fmt.Errorf("fetching notification preferences: %w", err)
 	}
 
-	if !d.emailEnabled.Load() {
-		for id, prefs := range enabled {
+	emailEnabled := d.emailEnabled.Load()
+	results := make([]models.DeliveryResult, 0, len(n.Recipients))
+	for _, recipient := range n.Recipients {
+		prefs := enabled[recipient.UserID]
+		if !emailEnabled {
 			filtered := make([]models.NotificationChannel, 0, len(prefs))
 			for _, channel := range prefs {
 				if channel != models.NotificationChannelEmail {
 					filtered = append(filtered, channel)
 				}
 			}
-			enabled[id] = filtered
+			prefs = filtered
 		}
-	}
-
-	results := make([]models.DeliveryResult, 0, len(n.Recipients))
-	for _, recipient := range n.Recipients {
 		results = append(results, models.DeliveryResult{
 			RecipientID: recipient.UserID,
 			Channels: d.pipeline.Send(
 				channels.Delivery{Recipient: recipient, Notification: n},
-				enabled[recipient.UserID],
+				prefs,
 			),
 		})
 	}
